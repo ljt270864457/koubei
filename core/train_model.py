@@ -21,8 +21,8 @@ def eval(y_true, y_hat):
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 
 df_train1 = pd.read_csv(f'{DATA_DIR}/train1_2016-09-20_2016-10-24.csv', header=None)
-df_train2 = pd.read_csv(f'{DATA_DIR}/train2_2016-09-10_2016-10-14.csv', header=None)
-df_train3 = pd.read_csv(f'{DATA_DIR}/train3_2016-09-03_2016-09-30.csv', header=None)
+df_train2 = pd.read_csv(f'{DATA_DIR}/train2_2016-09-13_2016-10-17.csv', header=None)
+df_train3 = pd.read_csv(f'{DATA_DIR}/train3_2016-09-06_2016-10-10.csv', header=None)
 df_train = pd.concat([df_train1, df_train2, df_train3])
 df_train_X = df_train.iloc[:, 1:-1]
 df_train_y = df_train.iloc[:, -1]

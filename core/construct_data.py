@@ -16,16 +16,16 @@ DATA_CONFIG = {
         'test_end_date': '2016-10-24'
     },
     'train2': {
-        'train_start_date': '2016-09-10',
-        'train_end_date': '2016-09-30',
-        'test_start_date': '2016-10-08',
-        'test_end_date': '2016-10-14'
+        'train_start_date': '2016-09-13',
+        'train_end_date': '2016-10-10',
+        'test_start_date': '2016-10-11',
+        'test_end_date': '2016-10-17'
     },
     'train3': {
-        'train_start_date': '2016-09-03',
-        'train_end_date': '2016-09-23',
-        'test_start_date': '2016-09-24',
-        'test_end_date': '2016-09-30'
+        'train_start_date': '2016-09-06',
+        'train_end_date': '2016-09-26',
+        'test_start_date': '2016-09-27',
+        'test_end_date': '2016-10-10'
     },
 }
 
