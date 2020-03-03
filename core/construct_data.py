@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from core.feature_engineer import gen_shop_feature
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 DATA_CONFIG = {
@@ -30,54 +31,30 @@ DATA_CONFIG = {
 }
 
 
-def construct_data(df_pay, train_start, train_end, test_start, test_end):
+def construct_data(df_pay, train_start_date, train_end_date, test_start_date, test_end_date):
     '''
     构造数据集
     '''
-    # 全量时间窗口
-    all_date_range = [x.strftime('%Y-%m-%d') for x in pd.date_range(train_start, test_end)]
-    # 忽略十一假期
-    filter_date_range = [x.strftime('%Y-%m-%d') for x in pd.date_range('2016-10-01', '2016-10-07')]
-    all_date_range = list(filter(lambda x: x not in filter_date_range, all_date_range))
+    df = df_pay[(df_pay['date'] >= train_start_date) & (df_pay['date'] <= test_end_date)]
+    df = pd.pivot_table(df, index='shop_id', columns='date', values='pay_count').reset_index()
+    df_sample = df.iloc[:, :22]
+    df_label = df.iloc[:, 22:]
 
-    # 训练集时间窗口
-    train_date_range = all_date_range[:21]
-    # 测试集时间窗口
-    test_date_range = all_date_range[21:]
-
-    # 构建店铺-日期维度
-    df_date = pd.DataFrame(all_date_range, columns=['date'])
-    df_date['key'] = 0
-    assert df_date.shape[0] == 28
-    df_shop = pd.DataFrame(range(1, 2001), columns=['shop_id'])
-    df_shop['key'] = 0
-    df_dim = pd.merge(df_shop, df_date, on='key')
-    df_dim = df_dim[['shop_id', 'date']]
-    assert df_dim.shape[0] == 2000 * 28
-
-    # 日期维度与实际支付数据进行合并
-    df = pd.merge(df_dim, df_pay, how='left').fillna(0)
-    df_train = pd.pivot_table(df[df['date'].isin(train_date_range)], index='shop_id', columns='date',
-                              values='pay_count').reset_index()
-    #     columns = ['shop_id']
-    #     columns.extend([f'day_{_}' for _ in range(1,22)])
-    #     df_train.columns = columns
-    #     df_train.head()
-    df_label = df[df['date'].isin(test_date_range)].groupby('shop_id')['pay_count'].sum().reset_index()
-    df_final = pd.merge(df_train, df_label, on='shop_id')
-    return df_final
+    df_shop_feature = gen_shop_feature(train_start_date, train_end_date)
+    df_sample = pd.merge(df_sample, df_shop_feature, on=['shop_id'], how='left')
+    return df_sample, df_label
 
 
 def run_construct():
-    df_pay = pd.read_csv(f'{DATA_DIR}/pay_stat_day.csv')
+    df_pay = pd.read_csv(f'{DATA_DIR}/stat_day.csv')
     for k, v in DATA_CONFIG.items():
         train_start_date = v.get('train_start_date')
         train_end_date = v.get('train_end_date')
         test_start_date = v.get('test_start_date')
         test_end_date = v.get('test_end_date')
-        tmp = construct_data(df_pay, train_start_date,
-                             train_end_date, test_start_date, test_end_date)
-        tmp.to_csv(f'{DATA_DIR}/{k}_{train_start_date}_{test_end_date}.csv', index=False, header=None)
+        df_sample, df_label = construct_data(df_pay, train_start_date, train_end_date, test_start_date, test_end_date)
+        df_sample.to_csv(f'{DATA_DIR}/sample_{k}_{train_start_date}_{test_end_date}.csv', index=False)
+        df_label.to_csv(f'{DATA_DIR}/label_{k}_{train_start_date}_{test_end_date}.csv', index=False)
 
 
 if __name__ == '__main__':
