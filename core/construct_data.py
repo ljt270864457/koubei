@@ -31,14 +31,58 @@ DATA_CONFIG = {
 }
 
 
+def smooth_sequence(sequence, a=0.5):
+    '''
+    一次指数平滑
+    a越小，平滑性越好
+    '''
+    result = []
+    sequence = list(sequence)
+    for i in range(len(sequence)):
+        y_true = sequence[i]
+        if i == 0:
+            y_hat = round((sequence[0] + sequence[1] + sequence[2]) / 3)
+        y_hat = round((1 - a) * y_hat + a * y_true)
+        result.append(y_hat)
+    return result
+
+
+def judge_zero(x):
+    result = 0
+    for _ in range(1, 22):
+        if x[_] == 0:
+            result = 1
+            break
+    return result
+
+
 def construct_data(df_pay, train_start_date, train_end_date, test_start_date, test_end_date):
     '''
     构造数据集
     '''
     df = df_pay[(df_pay['date'] >= train_start_date) & (df_pay['date'] <= test_end_date)]
     df = pd.pivot_table(df, index='shop_id', columns='date', values='pay_count').reset_index()
+
+    # 对销量数据删除存在0的样本，并且对21天的销量进行一次指数平滑，平滑参数为0.5
+    df['is_delete'] = df.apply(judge_zero, axis=1)
+    df = df[df['is_delete'] == 0]
+    df.drop('is_delete', axis=1, inplace=True)
+
     df_sample = df.iloc[:, :22]
     df_label = df.iloc[:, 22:]
+
+    print(df_sample.shape)
+    columns = df_sample.columns
+    result = []
+    for row_id, row in df_sample.iterrows():
+        sequence = list(row[1:22])
+        new_sequence = smooth_sequence(sequence, 0.5)
+        data = [row[0]]
+        data.extend(new_sequence)
+        data.extend(row[22:-1])
+        result.append(data)
+    df_sample = pd.DataFrame(result)
+    df_sample.columns = columns
 
     df_shop_feature = gen_shop_feature(train_start_date, train_end_date)
     df_sample = pd.merge(df_sample, df_shop_feature, on=['shop_id'], how='left')
