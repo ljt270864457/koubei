@@ -74,5 +74,5 @@ def gen_shop_feature(start_date, end_date):
     df_final['weekday_pay_total_div_browser'] = df_final['pay_weekday_sum'] / df_final['browser_weekday_sum']
     df_final['holiday_pay_mean_div_browser'] = df_final['pay_holiday_mean'] / df_final['browser_holiday_mean']
     df_final['weekday_pay_mean_div_browser'] = df_final['pay_weekday_mean'] / df_final['browser_weekday_mean']
-    # df_final.to_csv('../data/feature_shop.csv', index=False)
+    df_final.to_csv('../data/feature_shop.csv', index=False)
     return df_final

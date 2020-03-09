@@ -13,19 +13,45 @@ def stat_day_model():
     '''
     # TODO 需要构造天气数据
     统计模型 => stat_day.csv
-    shop_id date 浏览量 购买量 营业时间 周 是否是节假日 是否是教师节 是否是中秋节 weekid
+    shop_id date 浏览量 购买量 营业时间 周 是否是节假日 weekid
     :return:
     '''
+    # 处理用户支付数据
     df_pay = pd.read_csv('../data/user_pay.txt', header=None)
     df_pay.columns = ['user_id', 'shop_id', 'timestamp']
     df_pay['date'] = df_pay['timestamp'].apply(lambda x: x[:10])
-    df_pay = df_pay[(df_pay['date'] >= '2016-09-06') & (df_pay['date'] <= '2016-10-31')]
-    df_pay = df_pay[(df_pay['date'] > '2016-10-07') | (df_pay['date'] < '2016-10-01')]
-    df_agg = df_pay.groupby(['shop_id', 'date']).agg({'timestamp': ['min', 'max', 'size']}).reset_index()
-    df_agg.columns = ['shop_id', 'date', 'min_ts', 'max_ts', 'pay_count']
-    df_agg['operate_hour'] = (pd.to_datetime(df_agg['max_ts']) - pd.to_datetime(df_agg['min_ts'])) / np.timedelta64(1,
-                                                                                                                    'h')
-    df_agg['dayofweek'] = pd.to_datetime(df_agg['date']).dt.dayofweek
+    df_pay = df_pay[(df_pay['date'] >= '2016-09-06') &
+                    (df_pay['date'] <= '2016-10-31')]
+    df_pay = df_pay[(df_pay['date'] > '2016-10-07') |
+                    (df_pay['date'] < '2016-10-01')]
+    df_agg_pay = df_pay.groupby(['shop_id', 'date']).agg({
+        'timestamp': ['min', 'max', 'size'],
+    }).reset_index()
+    df_agg_pay.columns = ['shop_id', 'date', 'min_ts', 'max_ts', 'pay_count']
+    df_agg_pay['operate_hour'] = ((pd.to_datetime(
+        df_agg_pay['max_ts']) - pd.to_datetime(df_agg_pay['min_ts'])) / np.timedelta64(1, 'h')).astype(int)
+    df_agg_pay = df_agg_pay.drop(['min_ts', 'max_ts'], axis=1)
+    # 处理浏览数据
+    df_browser = pd.read_csv('../data/user_view.txt')
+    df_browser.columns = ['user_id', 'shop_id', 'timestamp']
+
+    df_browser['date'] = df_browser['timestamp'].apply(lambda x: x[:10])
+    df_browser = df_browser[(df_browser['date'] >= '2016-09-06') & (df_browser['date'] <= '2016-10-31')]
+    df_browser = df_browser[(df_browser['date'] > '2016-10-07') | (df_browser['date'] < '2016-10-01')]
+    browser_stat_day = df_browser.groupby(['shop_id', 'date']).size().reset_index()
+    browser_stat_day.columns = ['shop_id', 'date', 'browser_count']
+    dim_list = []
+    # 构建日期维度表
+    shop_id = df_agg_pay['shop_id'].unique()
+    date_list = df_agg_pay['date'].unique()
+    for _id in shop_id:
+        for date in date_list:
+            data = {'shop_id': _id, 'date': date}
+            dim_list.append(data)
+    df_dim = pd.DataFrame(dim_list)
+    df = pd.merge(df_dim, df_agg_pay, how='left').fillna(0)
+    df = pd.merge(df, browser_stat_day, how='left').fillna(0)
+    df['dayofweek'] = pd.to_datetime(df['date']).dt.dayofweek
 
     # 需要处理节假日及调休
     def deal_holiday(x):
@@ -36,9 +62,7 @@ def stat_day_model():
             result = 0
         return result
 
-    df_agg['is_holiday'] = df_agg['date'].apply(deal_holiday)
-    df_agg['is_teacher_day'] = df_agg['date'].apply(lambda x: 1 if x == '2016-09-10' else 0)
-    df_agg['is_moon_day'] = df_agg['date'].apply(lambda x: 1 if x == '2016-09-15' else 0)
+    df['is_holiday'] = df['date'].apply(deal_holiday)
     day_week_config = {
         '2016-09-06': 1,
         '2016-09-07': 1,
@@ -96,31 +120,11 @@ def stat_day_model():
         '2016-10-30': 7,
         '2016-10-31': 7
     }
-    df_agg['week_id'] = df_agg['date'].apply(lambda x: day_week_config.get(x))
-    # 生成维度表，使用维度表进行关联
-    dim_list = []
-    shop_id = df_agg['shop_id'].unique()
-    date_list = df_agg['date'].unique()
-    for _id in shop_id:
-        for date in date_list:
-            data = {'shop_id': _id, 'date': date}
-            dim_list.append(data)
-    df_dim = pd.DataFrame(dim_list)
-    df = pd.merge(df_dim, df_agg, how='left').fillna(0)
-
-    df_browser = pd.read_csv('../data/user_view.txt')
-    df_browser.columns = ['user_id', 'shop_id', 'timestamp']
-
-    df_browser['date'] = df_browser['timestamp'].apply(lambda x: x[:10])
-    df_browser = df_browser[(df_browser['date'] >= '2016-09-06') & (df_browser['date'] <= '2016-10-31')]
-    df_browser = df_browser[(df_browser['date'] > '2016-10-07') | (df_browser['date'] < '2016-10-01')]
-    browser_stat_day = df_browser.groupby(['shop_id', 'date']).size().reset_index()
-    browser_stat_day.columns = ['shop_id', 'date', 'browser_count']
-    df = pd.merge(df, browser_stat_day, how='left', on=['shop_id', 'date'])
-    df.drop(['min_ts', 'max_ts'], axis=1, inplace=True)
-    transform_column = ['pay_count', 'operate_hour', 'dayofweek', 'is_holiday', 'is_teacher_day', 'is_moon_day', 'week_id',
-                        'browser_count']
-    for each in transform_column:
-        df[each] = df[each].fillna(0)
-        df[each] = df[each].astype(int)
+    df['week_id'] = df['date'].apply(lambda x: day_week_config.get(x))
+    for column in ['pay_count', 'operate_hour', 'browser_count', 'dayofweek', 'is_holiday']:
+        df[column] = df[column].astype(int)
     df.to_csv('../data/stat_day.csv', index=False)
+
+
+if __name__ == '__main__':
+    stat_day_model()
