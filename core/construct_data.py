@@ -1,4 +1,8 @@
+# coding=utf-8
 import os
+import re
+from datetime import datetime
+
 import pandas as pd
 from core.feature_engineer import gen_shop_feature
 
@@ -56,6 +60,18 @@ def judge_zero(x):
     return result
 
 
+def get_holiday():
+    result = dict()
+    df = pd.read_csv(f'{DATA_DIR}/stat_day.csv', usecols=['date', 'is_holiday'])
+    df = df.drop_duplicates()
+    tmp_list = df.to_dict(orient='records')
+    for each in tmp_list:
+        _date = each.get('date')
+        is_holiday = each.get('is_holiday')
+        result[_date] = is_holiday
+    return result
+
+
 def construct_data(df_pay, train_start_date, train_end_date, test_start_date, test_end_date):
     '''
     构造数据集
@@ -71,7 +87,15 @@ def construct_data(df_pay, train_start_date, train_end_date, test_start_date, te
     df_sample = df.iloc[:, :22]
     df_label = df.iloc[:, 22:]
 
-    print(df_sample.shape)
+    sample_columns = [_ for _ in df_sample.columns if re.search('\d{4}-\d{2}-\d{2}', _)]
+    label_columns = [_ for _ in df_label.columns if re.search('\d{4}-\d{2}-\d{2}', _)]
+    date_columns = sorted(sample_columns + label_columns)
+    for index, each in enumerate(date_columns):
+        print(each, datetime.strptime(each, '%Y-%m-%d').weekday())
+
+    print(sample_columns)
+    print(label_columns)
+    print(date_columns)
     columns = df_sample.columns
     result = []
     for row_id, row in df_sample.iterrows():
@@ -84,22 +108,29 @@ def construct_data(df_pay, train_start_date, train_end_date, test_start_date, te
     df_sample = pd.DataFrame(result)
     df_sample.columns = columns
 
+    # 构建商铺进本特征
     df_shop_feature = gen_shop_feature(train_start_date, train_end_date)
     df_sample = pd.merge(df_sample, df_shop_feature, on=['shop_id'], how='left')
     return df_sample, df_label
 
 
-def run_construct():
-    df_pay = pd.read_csv(f'{DATA_DIR}/stat_day.csv')
-    for k, v in DATA_CONFIG.items():
-        train_start_date = v.get('train_start_date')
-        train_end_date = v.get('train_end_date')
-        test_start_date = v.get('test_start_date')
-        test_end_date = v.get('test_end_date')
-        df_sample, df_label = construct_data(df_pay, train_start_date, train_end_date, test_start_date, test_end_date)
-        df_sample.to_csv(f'{DATA_DIR}/sample_{k}_{train_start_date}_{test_end_date}.csv', index=False)
-        df_label.to_csv(f'{DATA_DIR}/label_{k}_{train_start_date}_{test_end_date}.csv', index=False)
+# def run_construct():
+#     df_pay = pd.read_csv(f'{DATA_DIR}/stat_day.csv')
+#     for k, v in DATA_CONFIG.items():
+#         train_start_date = v.get('train_start_date')
+#         train_end_date = v.get('train_end_date')
+#         test_start_date = v.get('test_start_date')
+#         test_end_date = v.get('test_end_date')
+#         print(train_start_date, train_end_date, test_start_date, test_end_date)
+
+
+# df_sample, df_label = construct_data(df_pay, train_start_date, train_end_date, test_start_date, test_end_date)
+
+# df_sample.to_csv(f'{DATA_DIR}/sample_{k}_{train_start_date}_{test_end_date}.csv', index=False)
+# df_label.to_csv(f'{DATA_DIR}/label_{k}_{train_start_date}_{test_end_date}.csv', index=False)
+# break
 
 
 if __name__ == '__main__':
-    run_construct()
+    # run_construct()
+    print(get_holiday())
