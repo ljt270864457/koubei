@@ -80,6 +80,7 @@ def construct_data(df_pay, train_start_date, train_end_date, test_start_date, te
     df = pd.pivot_table(df, index='shop_id', columns='date', values='pay_count').reset_index()
 
     # 对销量数据删除存在0的样本，并且对21天的销量进行一次指数平滑，平滑参数为0.5
+
     df['is_delete'] = df.apply(judge_zero, axis=1)
     df = df[df['is_delete'] == 0]
     df.drop('is_delete', axis=1, inplace=True)
@@ -91,7 +92,7 @@ def construct_data(df_pay, train_start_date, train_end_date, test_start_date, te
     result = []
     for row_id, row in df_sample.iterrows():
         sequence = list(row[1:22])
-        new_sequence = smooth_sequence(sequence, 0.3)
+        new_sequence = smooth_sequence(sequence, 0.5)
         data = [row[0]]
         data.extend(new_sequence)
         data.extend(row[22:-1])
@@ -132,4 +133,3 @@ def run_construct():
 
 if __name__ == '__main__':
     run_construct()
-    # print(get_holiday())
